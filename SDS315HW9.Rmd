@@ -1,0 +1,145 @@
+---
+title: "SDS315HW9"
+author: "Max Allen"
+date: "2024-04-16"
+output: html_document
+---
+
+Max Allen - mca2773
+github -> 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(mosaic)
+library(MatchIt)
+library(effectsize)
+library(moderndive)
+library(kableExtra)
+```
+
+# Homework 9
+
+## Problem 1
+
+### Part A
+
+```{r echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+turnout <- read_csv("turnout.csv")
+# First question
+
+mean(voted1998 ~ GOTV_call, data=turnout)[2]
+# Second question
+mean(voted1998 ~ GOTV_call, data=turnout)[1]
+
+# Third question
+
+old_conf = prop.test(voted1998 ~ GOTV_call, data = turnout)$conf.int[1:2]
+
+
+```
+The proportion of call receivers that voted is `r mean(voted1998 ~ GOTV_call, data=turnout)[2]`.
+The proportion of non call receivers that voted is `r mean(voted1998 ~ GOTV_call, data=turnout)[1]`.
+A confidence interval of the difference in proportions of these two groups is `r old_conf`.
+
+### Part B
+
+```{r echo=FALSE}
+mean_tablex = c(mean(voted1998 ~ MAJORPTY, data=turnout),
+               mean(voted1998 ~ voted1996, data=turnout))
+
+mean_tabley = c(mean(GOTV_call ~ MAJORPTY, data=turnout),
+      mean(GOTV_call ~ voted1996, data=turnout))
+
+column_titles <- c("MAJORPTY NO", "MAJORPTY YES", "voted1996 NO", "voted1996 YES")
+
+result_table1 <- data.frame(Group = column_titles, propvoters = mean_tablex)
+result_table2 <- data.frame(Group = column_titles, propcall = mean_tabley)
+
+turnout %>% 
+  ggplot(aes(x=GOTV_call, y=AGE)) + geom_jitter()
+
+turnout %>% 
+  ggplot(aes(x=voted1998, y=AGE)) + geom_jitter()
+
+kable_styling(kbl(result_table1))
+kable_styling(kbl(result_table2))
+```
+
+The plots demonstrate the effect of age on both 1998 voting and receiving the call. The difference in both sides demonstrate age's classification as a confounder in our scenario. The tables show proportion of voters in 1998 on whether or not they received a treatment. It goes from whether they were in a major party to whether they voted in 1996. As you can see these aren't the same proportions or even close which signifies each having some relationship with 1998 voting. Below is the same table, but instead of measuring their relationship with 1998 voting it instead shows their proportion on getting the call, causing them to be confounders as well.
+
+### Part C
+
+```{r echo=FALSE}
+call_match = matchit(GOTV_call ~ factor(voted1996) + AGE + factor(MAJORPTY), data = turnout, ratio=5)
+call_matched = match.data(call_match)
+
+
+mean_tablez = c(mean(GOTV_call ~ MAJORPTY, data=call_matched),
+               mean(GOTV_call ~ voted1996, data=call_matched))
+result_table3 <- data.frame(Group = column_titles, propvoters = mean_tablez)
+kable_styling(kbl(result_table3))
+
+call_matched %>% 
+  ggplot(aes(x=AGE, y=GOTV_call)) + geom_jitter()
+
+
+new_conf = prop.test(voted1998 ~ GOTV_call, data=call_matched)$conf.int[1:2]
+
+
+true_prop_no_call = mean(voted1998 ~ GOTV_call, data=call_matched)[1]
+true_prop_yes_call = mean(voted1998 ~ GOTV_call, data=call_matched)[2]
+
+```
+
+The new tables and graph provided demonstrate how receiving the call is no longer effected by age, major party status, or previous voter status. Now I can fit for the true relationship between receiving the call and voting in 1998. The new proportion for those who received a call and then voted is `r true_prop_yes_call`. The new proportion for those who didn't receive a call and then voted is `r true_prop_no_call`. The old confidence interval for difference in proportions was `r old_conf`; now, we have a confidence interval of `r new_conf`, showing that the relationship is much smaller than it first appeared to be.
+
+## Problem 2
+
+### Part A
+```{r echo=FALSE, message=FALSE}
+solder = read_csv("solder.csv")
+
+solder %>% 
+  ggplot(aes(x = Opening, y = skips)) + geom_jitter(col="steelblue") + labs(title = "Flaws by Solder Gun Opening Size")
+```
+
+> This graph shows the effect of opening size on the amount of skips, or manufacturing flaws, of a circuit board by AT&T. It is clear that the distribution of skips changes vastly depending on what opening is used with small having many more than the others.
+
+
+```{r echo=FALSE}
+solder %>% 
+  ggplot(aes(x=Solder, y = skips)) + geom_boxplot(fill="coral") + labs(title = "Flaws by Solder Thickness")
+```
+
+> This graph is similar to the last one, but instead it shows the effect of the thickness of the alloy used for soldering on the amount of skips. Again, there is a clear relationship between the two variables with thin solder resulting in many more skips on average.
+
+### Part B
+
+```{r echo=FALSE}
+sldr = lm(skips ~ Opening + Solder + Opening:Solder, data=solder)
+coef(sldr)
+kable_styling(kbl(get_regression_table(sldr, conf.level = .95)))
+values = get_regression_table(sldr, conf.level = .95)$estimate
+values[1]
+```
+
+### Part C
+
+The baseline is a solder gun with a large opening using a thick alloy.  
+
+Opening = L and Solder = Thick; y = `r values[1]`  
+Opening = M and Solder = Thick; y = `r values[1]` + `r values[2]`  
+Opening = S and Solder = Thick; y = `r values[1]` + `r values[3]`  
+Opening = L and Solder = Thin; y = `r values[1]` + `r values[4]`  
+Opening = M and Solder = Thin; y = `r values[1]` + `r values[2]` + `r values[5]`  
+Opening = S and Solder = Thin; y = `r values[1]` + `r values[3]` + `r values[6]`  
+
+### Part D
+
+I would definitely recommend using a large opening with thick alloy, as the amount of skips increase as the opening gets smaller and thicker alloy also causes more skips. I will admit that I don't know anything else about soldering and if other factors matter, but in terms of minimizing skips there is a clear answer.
+
